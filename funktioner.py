@@ -149,7 +149,7 @@ class Metadata:
     Klassen fungerer som wrapper for funktionen "_get_metadata".
     Brug en af 3 følgende kommandoer:
 
-    1.  self.metadata (returnerer udvidede metadata for tables)
+    1.  self.kategorier (returnerer udvidede metadata for tables)
     2.  self.tables (returnerer tables, som kan kaldes)
     3.  self.variables (returnerer de variable, som tables indeholder)
     """
@@ -201,6 +201,7 @@ class DataSelector:
     def __init__(self, tablename, get_metadata=False):
         url = "https://api.statbank.dk/v1/tableinfo"
         self.tablename = tablename
+        self.link = f"www.statistikbanken.dk/{tablename}"
         payload = {
            "table": self.tablename,
            "format": "JSON"
