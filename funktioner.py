@@ -1,3 +1,9 @@
+"""
+TODO:
+1. Implementering af en YAML-fil, der opsamler konfigurationsvalgene?
+2. Understøttelse 
+"""
+
 import json
 import pprint
 from io import StringIO
@@ -5,6 +11,7 @@ from io import StringIO
 import numpy as np
 import pandas as pd
 import requests
+from typing import Union
 
 
 def _get_metadata():
@@ -15,11 +22,9 @@ def _get_metadata():
 
     De 3 DataFrames der returneres er: 
 
-    1.  "metadata" som indeholder de 3 niveauer, som tabeller 
-        kategoriseres efter.
+    1.  "metadata" som indeholder de 3 niveauer, som tabeller kategoriseres efter.
     2.  "tables" som indeholder alle tables, som kan hentes
-    3.  "variables" som indeholder informationer om hvilke variable, som
-        de enkelte tables indeholder. 
+    3.  "variables" som indeholder informationer om hvilke variable, som de enkelte tables indeholder. 
 
     Funktionen anvendes af klassen "Metadata", som fungerer som wrapper.
     """
@@ -32,7 +37,7 @@ def _get_metadata():
 
     subs = requests.post(url, payload).json()
 
-    def transformer(s):
+    def transformer(s: pd.Series) -> pd.Series:
         """
         Funktionen tager en Pandas-serie, der indeholder JSON.
         Funktionen transformerer JSON til en DataFrame og sikrer sig
@@ -162,6 +167,10 @@ class Metadata:
     def __repr__(self): return self.__doc__
 
 class Variable:
+    """
+    Klassen er overordnet set bare en repr-klasse, der tillader printning af variablene, så de er lette at arbejde med.
+    Klassen kan overskrives ved at bruge `self.set_vals()`, som hovesageligt bør anvendes fra `DataSelector`-klassen.
+    """
     def __init__(self, id_, vals, eliminate):
         self.id_ = id_
         self.rå_vals = vals
@@ -183,8 +192,16 @@ class Variable:
         df = df.infer_objects()
         self.vals = df
 
-    def set_vals(self, df):
-        self.chosen = df.id_var.to_list()
+    def set_vals(self, chosen: Union[pd.DataFrame, list, str, bool]):
+        if isinstance(chosen, (str, list)):
+            self.chosen = list(chosen)
+        elif isinstance(chosen, bool):
+            if chosen == True:
+                self.chosen = self.vals.id_var.to_list()
+            else:
+                self.chosen = []
+        else:
+            self.chosen = chosen.id_var.to_list()
         self.update_repr()
 
     def create_query(self):
@@ -198,7 +215,16 @@ class Variable:
         return f"<Var: {self.id_}, valgt: {self._valgte}, i alt: {self._antal_var}{eliminate}>"
 
 class DataSelector:
-    def __init__(self, tablename, get_metadata=False):
+    """
+    Henter variable for en tabel og tilader, at variablene analyseres og udvælges.
+    Hver variabel konstrueres med Variable-klassen. 
+    Variablenes indhold kan ses med `ds["{VAR_NAVN}"].vals`.
+    For at udvælge mindre dele af variablen, så kan vi overskrive ds["{VAR_NAVN}"] med en DataFrame, der indeholder de ønskede variable i kolonnen `id_vars`.
+    For at udvælge alle variable, kan vi sætte ds["{VAR_NAVN}"] lig med `True`.
+    For at hente data, så bruger vi `ds.get_data()`
+    """
+
+    def __init__(self, tablename):
         url = "https://api.statbank.dk/v1/tableinfo"
         self.tablename = tablename
         self.link = f"www.statistikbanken.dk/{tablename}"
@@ -208,8 +234,6 @@ class DataSelector:
         }
         self.rå_metadata = requests.post(url, payload).json()
         self.make_tables()
-        if get_metadata:
-            self.setup_metadata()
 
     def get_col_number(self):
         array1 = np.array(
@@ -222,6 +246,7 @@ class DataSelector:
 
     def get_number_of_combinations(self):
         """
+        Estimerer antallet af rækker i den returnerede tabel
         OBS: np.prod([]) = 1 (hvilket er den ønskede funktionalitet)
         """
         chosen = [len(x.chosen) for x in self.vars.values()]
@@ -231,7 +256,6 @@ class DataSelector:
     def estimated_data_amount(self):
         return self.get_number_of_combinations() * self.get_col_number()
 
-    
     def make_tables(self):
         res = {}
         for var in self.rå_metadata["variables"]:
@@ -240,13 +264,28 @@ class DataSelector:
             eliminate = var["elimination"]
             res[id_] = Variable(id_, vals, eliminate)
         self.vars = res
-        
+    
+    def create_sub_query(self):
+        res = []
+        for var_key, var_value in self.vars.items():
+            if isinstance(var_value, Variable):
+                res.append(var_value.create_query())
+            if isinstance(var_value, list):
+                res.append({"code": var_key, "values": var_value})
+            if isinstance(var_value, str):
+                res.append({"code": var_key, "values": var_value})
+        return res
+
     def create_query(self):
-        vars = [x.create_query() for x in self.vars.values()]
+        vars = self.create_sub_query()
         vars = [x for x in vars if len(x["values"]) != 0]
+        if self.get_number_of_combinations() > 2*10**6: # Just for security
+            format = "BULK"
+        else:
+            format = "CSV" 
         payload = {
            "table": self.tablename,
-           "format": "CSV",
+           "format": format,
             "variables": vars
         }
         return json.dumps(payload)
@@ -258,6 +297,9 @@ class DataSelector:
             'Accept-Encoding': 'gzip, deflate, br'
         }
         resp = requests.post(url, self.create_query(), headers=headers)
+        if resp.status_code != 200:
+            error_msg = resp.text
+            raise requests.RequestException(f"Error fetching data: {error_msg}")
         df = pd.read_csv(
             StringIO(
                 resp.text
@@ -265,7 +307,11 @@ class DataSelector:
             sep=";"
         )
         return df
-    
+
+    def select_all(self):
+        for key in self.vars:
+            self[key] = True
+
     def __repr__(self):
         pprint.pprint(self.vars)
         return ""
@@ -274,10 +320,13 @@ class DataSelector:
         return self.vars[key]
     
     def __setitem__(self, key, new_val):
-        if new_val is True:
-            self.vars[key].set_vals(self.vars[key].vals)
-        else:
-            self.vars[key].set_vals(new_val)
+        self.vars[key].set_vals(new_val)
 
 if __name__ == '__main__':
-    pass
+    md = Metadata()
+    ds = DataSelector("REGK100")
+    ds.select_all()
+    ds["EJER"] = ds["EJER"].vals.loc[0:0]
+    print("GETTING DATA")
+    df = ds.get_data()
+    df.to_feather("TEST.feather")
