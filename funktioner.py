@@ -1,8 +1,3 @@
-"""
-TODO:
-1. Implementering af en YAML-fil, der opsamler konfigurationsvalgene?
-2. Understøttelse 
-"""
 
 import json
 import pprint
@@ -13,6 +8,7 @@ import pandas as pd
 import requests
 from typing import Union
 
+import time
 
 def _get_metadata():
     """
@@ -193,8 +189,10 @@ class Variable:
         self.vals = df
 
     def set_vals(self, chosen: Union[pd.DataFrame, list, str, bool]):
-        if isinstance(chosen, (str, list)):
-            self.chosen = list(chosen)
+        if isinstance(chosen, str):
+            self.chosen = [str(chosen)]
+        elif isinstance(chosen, list):
+            self.chosen = chosen
         elif isinstance(chosen, bool):
             if chosen == True:
                 self.chosen = self.vals.id_var.to_list()
@@ -224,9 +222,10 @@ class DataSelector:
     For at hente data, så bruger vi `ds.get_data()`
     """
 
-    def __init__(self, tablename):
+    def __init__(self, tablename, accept=False):
         url = "https://api.statbank.dk/v1/tableinfo"
         self.tablename = tablename
+        self.accept = accept
         self.link = f"www.statistikbanken.dk/{tablename}"
         payload = {
            "table": self.tablename,
@@ -281,6 +280,8 @@ class DataSelector:
         vars = [x for x in vars if len(x["values"]) != 0]
         if self.get_number_of_combinations() > 2*10**6: # Just for security
             format = "BULK"
+            if not self.accept:
+                self.are_you_sure()
         else:
             format = "CSV" 
         payload = {
@@ -290,6 +291,15 @@ class DataSelector:
         }
         return json.dumps(payload)
     
+    def are_you_sure(self):
+        print("You are trying to fetch a very large dataset. \n"
+              "You can use `accept=True` when creating DataSelector to prevent this prompt. \n"
+              "The total number of combinations are: \n"
+              "{:_}".format(self.get_number_of_combinations()))
+        answer = input("Do you wish to continue? (y/N) ")
+        if answer.lower() != "y":
+            raise InterruptedError("Process interrupted due to user input")
+
     def get_data(self):
         url = "https://api.statbank.dk/v1/data"
         headers = {
@@ -323,10 +333,18 @@ class DataSelector:
         self.vars[key].set_vals(new_val)
 
 if __name__ == '__main__':
+    print("PERFOMING TEST")
     md = Metadata()
+    print("Metadata fetched")
     ds = DataSelector("REGK100")
     ds.select_all()
-    ds["EJER"] = ds["EJER"].vals.loc[0:0]
+    # print(ds["EJER"].vals)
+    ds["EJER"] = "1"
+    ds["Tid"] = ["2022", "2021"]
+    with open("TEST_QUERY.json", "w") as f:
+        json.dump(ds.create_query(), f)
+    print("Test query saved in `TEST_QUERY.json`")
     print("GETTING DATA")
     df = ds.get_data()
+    print("Data fetched after")
     df.to_feather("TEST.feather")
