@@ -189,15 +189,15 @@ class Variable:
         self.vals = df
 
     def set_vals(self, chosen: Union[pd.DataFrame, list, str, int, bool]):
-        if isinstance(chosen, (int, str)):
-            self.chosen = [str(chosen)]
-        elif isinstance(chosen, list):
-            self.chosen = chosen
-        elif isinstance(chosen, bool):
+        if isinstance(chosen, bool):
             if chosen == True:
                 self.chosen = self.vals.id_var.to_list()
             else:
                 self.chosen = []
+        elif isinstance(chosen, (int, str)):
+            self.chosen = [str(chosen)]
+        elif isinstance(chosen, list):
+            self.chosen = chosen
         else:
             self.chosen = chosen.id_var.to_list()
         self.update_repr()
@@ -272,8 +272,6 @@ class DataSelector:
             if isinstance(var_value, list):
                 var_value = [str(x) for x in var_value]
                 res.append({"code": var_key, "values": var_value})
-            if isinstance(var_value, (str, int)):
-                res.append({"code": var_key, "values": str(var_value)})
         return res
 
     def create_query(self):
