@@ -3,3 +3,4 @@
 *.csv
 TEST_QUERY.json
 __pycache__
+.ipynb_checkpoints
