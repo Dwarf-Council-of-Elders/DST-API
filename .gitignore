@@ -1,0 +1,4 @@
+.vscode
+*.feather
+*.csv
+TEST_QUERY.json
