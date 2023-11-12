@@ -2,8 +2,6 @@
 
 Denne pakke giver et let tilgøængeligt interface til at arbejde med [Danmarks Statistiks API](https://www.dst.dk/da/Statistik/brug-statistikken/muligheder-i-statistikbanken/api#testkonsol).
 
-Tjek evt. demo.ipynb for en basal demonstration af funktionaliteten.
-
 Overordnet er der to hovedklasser, som anvendes, når man arbejder med pakken:
 
 1. `Metadata`
