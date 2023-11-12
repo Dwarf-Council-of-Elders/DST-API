@@ -2,3 +2,4 @@
 *.feather
 *.csv
 TEST_QUERY.json
+__pycache__
