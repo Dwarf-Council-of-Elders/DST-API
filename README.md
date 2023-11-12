@@ -1,6 +1,6 @@
 # DST-API
 
-Denne pakke giver et let tilgøængeligt interface til at arbejde med /(Danmarks Statistiks API)[https://www.dst.dk/da/Statistik/brug-statistikken/muligheder-i-statistikbanken/api#testkonsol].
+Denne pakke giver et let tilgøængeligt interface til at arbejde med [Danmarks Statistiks API](https://www.dst.dk/da/Statistik/brug-statistikken/muligheder-i-statistikbanken/api#testkonsol).
 
 Tjek evt. demo.ipynb for en basal demonstration af funktionaliteten.
 
@@ -79,6 +79,8 @@ Hvis vi gerne vil se mulighederne, som vi kan vælge imellem under en variabel, 
 15   2022  2022
 ```
 
+I ovenstående DataFrame skal man særligt bide mærke i kollonen `id_vars`, som indeholder den data, som vi skal bruge, når vi i det nedenstående skal udvælge vores data forud for hentning.
+
 ## Udvælgelse af variable
 For at udvælge variable til vores datatræk, så kan vi anvende flere forskellige metoder, som gennemgås nedenfor. 
 
@@ -102,11 +104,10 @@ For at afvælge kategorier, så kan vi gøre det samme - bare med `False`:
 
 Som det ses er der nu 0 valgte kategorier under tid.
 
-### Anvendelse af `str` eller `list`
+### Anvendelse af `str`, `int` eller `list`
 
-Vi kan også udvælge kategorier med objekter af typerne `str` eller `list`.
+Vi kan også udvælge kategorier med objekter af typerne `str`, `int` eller `list`.
 I denne forbindelse er det vigtigt, at vi anvender værdierne fra kolonnen `id_var`, som vi kan se, når vi kalder `ds["{VARIABEL_NAVN}"].vals`. 
-*Se afsnittet "Om `id_var`" nedenfor.*
 
 ```python
 >>> ds["Tid"] = ["2022", 2021]
